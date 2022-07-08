@@ -1,0 +1,30 @@
+[project]
+name = "PiChart"
+version = "1.0.0"
+description = "Tiny Charts Dashboard UI for MicroPython"
+readme = "README.md"
+license = { file = "LICENSE" }
+
+[project.urls]
+Homepage = "http://www.kevsrobots.com"
+GitHub = "https://www.github.com/kevinmcaleer/pichart"
+YouTube = "https://www.youtube.com/c/kevinmcaleer28"
+
+[project.optional-dependencies]
+dev = ["bumpver", "pip-tools"]
+
+[tool.bumpver]
+current_version = "1.0.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = ['current_version = "{version}"', 'version = "{version}"',]
+"README.md" = [
+    "{version}",
+    "{pep440_version}",
+]
+
