@@ -3,7 +3,7 @@
 # Kevin McAleer
 # June 2022, Improved February 2025
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 import jpegdec
 
@@ -46,8 +46,9 @@ class Chart:
         show_bars: Show data as bars (default True).
         show_lines: Connect data points with lines (default False).
         show_datapoints: Show data points as circles (default False).
+        scale_to_fit: Scale data to fit chart width (default False).
     """
-
+    SHOW_AXES_DEFAULT = False
     def __init__(self, display, title: str = "", x_label: str = None, y_label: str = None, 
                  values: list = None):
         """Create a new chart.
@@ -74,6 +75,7 @@ class Chart:
         self._min_val = None
         self._max_val = None
         self._y_scale = 1
+        self._x_scale = 1  # New attribute for horizontal scaling
         
         # Positioning and size
         self.x = 0
@@ -101,10 +103,38 @@ class Chart:
         self.title_colour = DEFAULT_COLORS['TITLE'].copy()
         self.data_colour = DEFAULT_COLORS['DATA'].copy()
         
+        # New scaling option
+        self._scale_to_fit = False  # Default to False (manual spacing)
+        
         # Validate and scale data if provided
         if self.values:
             self._validate_data(self.values)
             self._scale_data()
+        self.show_x_axis = self.SHOW_AXES_DEFAULT
+        self.show_y_axis = self.SHOW_AXES_DEFAULT
+        self.axis_label_colour = DEFAULT_COLORS['TITLE'].copy()
+
+    def _draw_x_axis(self):
+        axis_pen = self._get_pen(self.axis_label_colour)
+        self._display.set_pen(axis_pen)
+        y_pos = self.y + self.height - self.border_width - 10
+        # print(f"self.y: {self.y}, ypos: {y_pos}")
+        # self._display.line(self.x + self.border_width, y_pos, self.x + self.width - self.border_width, y_pos)
+        if self.values:
+            self._display.text(str(self.values[0]), self.x + self.border_width, y_pos + 2, scale=1)
+            self._display.text(str(self.values[len(self.values)//2]), self.x + (self.width // 2), y_pos + 2, scale=1)
+            self._display.text(str(self.values[-1]), self.x + self.width - self.border_width - 10, y_pos + 2, scale=1)
+    
+    def _draw_y_axis(self):
+        axis_pen = self._get_pen(self.axis_label_colour)
+        self._display.set_pen(axis_pen)
+        x_pos = self.x + self.border_width + 10
+        # print(f"self.x: {self.x}, xpos: {x_pos}")
+        # self._display.line(x_pos, self.y + self.border_width, x_pos, self.y + self.height - self.border_width)
+        if self.values:
+            self._display.text(str(self._min_val), x_pos - 10, self.y + self.height - self.border_width - 10, scale=1)
+            self._display.text(str((self._min_val + self._max_val) // 2), x_pos - 10, self.y + (self.height // 2) - 5, scale=1)
+            self._display.text(str(self._max_val), x_pos - 10, self.y + self.border_width, scale=1)
 
     def set_values(self, new_values: list) -> None:
         """Update the chart data and recalculate scaling.
@@ -131,6 +161,26 @@ class Chart:
         """
         self._show_labels = bool(value)
         self.data_point_radius = DEFAULT_SIZES['DATA_POINT_RADIUS'] * (4 if value else 1)
+
+    @property
+    def scale_to_fit(self) -> bool:
+        """Whether to scale data to fit the chart width.
+
+        Returns:
+            True if scaling to fit, False for fixed spacing.
+        """
+        return self._scale_to_fit
+
+    @scale_to_fit.setter
+    def scale_to_fit(self, value: bool) -> None:
+        """Set whether to scale data to fit the chart width.
+
+        Args:
+            value: True to scale width to fit all data, False to use fixed spacing.
+        """
+        self._scale_to_fit = bool(value)
+        if self.values:
+            self._scale_data()  # Recalculate scaling if data exists
 
     def _get_pen(self, color: dict) -> int:
         """Get a pen (color) from the cache or create a new one.
@@ -165,14 +215,29 @@ class Chart:
             log_debug("Data values outside typical range (-1000 to 1000)")
 
     def _scale_data(self) -> None:
-        """Adjust data scale to fit the chart height."""
-        self._min_val = min(self.values)
-        self._max_val = max(self.values)
+        """Adjust data scale to fit both chart height and width if scale_to_fit is True."""
+        self._min_val = min(self.values) if self.values else 0
+        self._max_val = max(self.values) if self.values else 1
         if self._max_val == self._min_val:
             self._max_val += 1  # Avoid division by zero
             self._min_val -= 1
+
+        # Vertical scaling (height)
         plot_height = (self.height - self.text_height) - (self.border_width * 2)
         self._y_scale = plot_height / (self._max_val - self._min_val)
+
+        # Horizontal scaling (width) if scale_to_fit is True
+        if self._scale_to_fit and self.values:
+            num_values = len(self.values)
+            self.bar_gap = 0
+            plot_width = self.width - (self.border_width * 2) - (self.bar_gap * (num_values - 1))
+#             print(f"Plot width: {plot_width}, number of values: {num_values}")
+            if num_values > 1:
+                self._x_scale = plot_width / (num_values - 1)  # Space between points
+            else:
+                self._x_scale = plot_width  # Single point
+        else:
+            self._x_scale = self.data_point_width + self.bar_gap  # Fixed spacing
 
     @staticmethod
     def map_value(x: float, in_min: float, in_max: float, out_min: float, out_max: float) -> float:
@@ -214,7 +279,7 @@ class Chart:
         grid_pen = self._get_pen(self.grid_colour)
         self._display.set_pen(grid_pen)
         x, y = self.x, self.y
-        w, h = self.height, self.width
+        w, h = self.width, self.height
 
         cols = w // self.grid_spacing
         rows = h // self.grid_spacing
@@ -248,7 +313,10 @@ class Chart:
             # Draw title
             title_pen = self._get_pen(self.title_colour)
             self._display.set_pen(title_pen)
-            self._display.text(self.title, self.x + self.border_width + 1, 
+            title_x_pos = self.x + (self.width - self._display.measure_text(self.title, 1)) // 2 - self.border_width * 2
+            
+            # self._display.text(self.title, self.x + self.border_width + 1, self.y + self.border_width + 1, self.width)
+            self._display.text(self.title, title_x_pos, 
                              self.y + self.border_width + 1, self.width)
 
             # Prepare data drawing
@@ -258,7 +326,8 @@ class Chart:
                 'green': self.data_colour['green'] // 4,
                 'blue': self.data_colour['blue'] // 4
             })
-            plot_area = (self.height - self.text_height) - (self.border_width * 2)
+            plot_area_height = (self.height - self.text_height) - (self.border_width * 2)
+            plot_area_width = self.width - (self.border_width * 2)
             x_pos = self.x + self.border_width + 2
             y_base = self.y + self.height - self.border_width - 2
             prev_x, prev_y = x_pos, y_base
@@ -266,32 +335,56 @@ class Chart:
             self._display.set_clip(self.x + self.border_width, self.y + self.text_height,
                                  self.x + self.width, self.y + self.height - self.border_width)
 
+            num_values = len(self.values)
+            if num_values == 0:
+                return
+
+            # Calculate bar/point width based on scaling
+            if self._scale_to_fit:
+                if num_values > 1:
+                    point_spacing = plot_area_width // (num_values - 1)  # Evenly space points
+                else:
+                    point_spacing = plot_area_width  # Single point takes full width
+                bar_width = point_spacing - self.bar_gap if self.show_bars else self.data_point_width
+#                 print(f'point spacing {point_spacing} bar width {bar_width}')
+                if bar_width < 1:
+                    bar_width = 1  # Minimum width
+            else:
+                bar_width = self.data_point_width
+                point_spacing = self._x_scale  # Fixed spacing
+
             for idx, value in enumerate(self.values):
-                scaled_height = int(self.map_value(value, self._min_val, self._max_val, 0, plot_area))
+                scaled_height = int(self.map_value(value, self._min_val, self._max_val, 0, plot_area_height))
                 y_pos = y_base - scaled_height
                 log_debug(f"Value: {value}, Scaled height: {scaled_height}, X: {x_pos}, Y: {y_pos}")
 
                 if self.show_bars:
                     self._display.set_pen(data_pen)
-                    self._display.rectangle(x_pos, y_pos, self.data_point_width, scaled_height)
+                    self._display.rectangle(x_pos, y_pos, bar_width, scaled_height)
 
                 if self.show_datapoints:
+                    center_x = x_pos + bar_width // 2
                     self._display.set_pen(data_pen_dim)
-                    self._display.circle(x_pos + self.data_point_width // 2, y_pos, self.data_point_radius * 2)
+                    self._display.circle(center_x, y_pos, self.data_point_radius * 2)
                     self._display.set_pen(data_pen)
-                    self._display.circle(x_pos + self.data_point_width // 2, y_pos, self.data_point_radius)
+                    self._display.circle(center_x, y_pos, self.data_point_radius)
 
                 if self.show_lines and idx > 0:
                     self._display.set_pen(data_pen)
-                    self._display.line(prev_x + self.data_point_width // 2, prev_y,
-                                     x_pos + self.data_point_width // 2, y_pos)
+                    self._display.line(prev_x + bar_width // 2, prev_y, x_pos + bar_width // 2, y_pos)
 
                 if self._show_labels:
                     self._display.set_pen(data_pen)
-                    self._display.text(str(value), x_pos, y_pos - 10, self.width - x_pos)
+                    label_x = x_pos if self._scale_to_fit else x_pos - (self.data_point_width // 2)
+                    self._display.text(str(value), label_x, y_pos - 10, self.width - x_pos)
 
                 prev_x, prev_y = x_pos, y_pos
-                x_pos += self.data_point_width + self.bar_gap
+                x_pos += point_spacing
+
+            if self.show_x_axis:
+                self._draw_x_axis()
+            if self.show_y_axis:
+                self._draw_y_axis()
 
             self._display.remove_clip()
             self.draw_border()
@@ -345,12 +438,13 @@ class Card(Chart):
             text_width = self._display.measure_text(self.title, scale)
             text_height = 8 * scale
             if text_width <= max_width and text_height <= max_height:
+                print(f"Text width: {text_width}, height: {text_height}, scale: {scale}")
                 return scale
             scale -= 1
         return 1
 
     def update(self) -> None:
-        """Draw the card on the display."""
+        """Draw the card on the display with centered, potentially wrapped text."""
         try:
             background_pen = self._get_pen(self.background_colour)
             title_pen = self._get_pen(self.title_colour)
@@ -362,12 +456,28 @@ class Card(Chart):
 
             self.draw_border()
             self._text_scale = self._scale_text()
+            self._display.set_font("bitmap8")
+
+            # Calculate available width for text (excluding borders)
+            max_text_width = self.width - (self.border_width * 2)
             text_length = self._display.measure_text(self.title, self._text_scale)
+            
+            # Center the text horizontally
             title_x = self.x + (self.width - text_length) // 2
+            # Center the text vertically (assuming 8 pixels per line height)
             title_y = self.y + (self.height - (self._text_scale * 8)) // 2
 
             self._display.set_pen(title_pen)
-            self._display.text(self.title, title_x, title_y, text_length, self._text_scale)
+            # Draw text with wrapping if it exceeds max_text_width
+            if text_length > max_text_width:
+                # Use max_text_width as the wordwrap parameter
+                self._display.text(self.title, self.x + self.border_width, title_y, max_text_width, self._text_scale)
+                print(f"Text wrapped: width={text_length}, max_width={max_text_width}, scale={self._text_scale}")
+            else:
+                # Draw centered text without wrapping
+                self._display.text(self.title, title_x, title_y, max_text_width, self._text_scale)
+                print(f"Text centered: width={text_length}, x={title_x}, y={title_y}, scale={self._text_scale}")
+
             self._display.update()
 
         except Exception as e:
