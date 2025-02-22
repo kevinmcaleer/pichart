@@ -1,7 +1,3 @@
-#### 3. **docs/api_reference.md**
-A concise reference for all classes and key methods, derived from the docstrings.
-
-```markdown
 # PiChart API Reference
 
 ## Chart
