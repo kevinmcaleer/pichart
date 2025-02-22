@@ -38,3 +38,17 @@ chart.data_colour = {'red': 255, 'green': 0, 'blue': 0}  # Red bars
 container = Container(display)
 container.add_chart(chart)
 container.update()
+```
+
+# Documentation
+See [docs/](docs/) for detailed guides:
+
+- [User Guide](docs/user_guide.md): Full usage instructions
+- [API Reference](docs/api_reference.md): Class and method details
+- [Examples](docs/examples.md): More code samples
+
+# License
+MIT License - See LICENSE for details.
+
+# Contributing
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
