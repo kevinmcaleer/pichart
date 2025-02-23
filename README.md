@@ -49,7 +49,7 @@ See [docs/](docs/) for detailed guides:
 
 # Example project
 
-Be sure to checkout my Pimoroni [Presto Weather Station Display project](https://www.kevsrobots.com/blog/presto-weather-station.html)
+Be sure to checkout my Pimoroni [Presto Weather Station Display project](https://www.kevsrobots.com/blog/weather-station-display.html)
 
 # License
 MIT License - See LICENSE for details.
