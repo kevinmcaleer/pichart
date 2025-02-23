@@ -47,6 +47,10 @@ See [docs/](docs/) for detailed guides:
 - [API Reference](docs/api_reference.md): Class and method details
 - [Examples](docs/examples.md): More code samples
 
+# Example project
+
+Be sure to checkout my Pimoroni [Presto Weather Station Display project](https://www.kevsrobots.com/blog/presto-weather-station.html)
+
 # License
 MIT License - See LICENSE for details.
 
